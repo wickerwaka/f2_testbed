@@ -271,21 +271,14 @@ int main(int argc, char *argv[])
 
     memset(TC0100SCN, 0, sizeof(TC0100SCN_Layout));
 
-    TC0100SCN_Ctrl->bg1_y = 0;
-    TC0100SCN_Ctrl->bg1_x = 0;
+    TC0100SCN_Ctrl->bg1_y = 4;
+    TC0100SCN_Ctrl->bg1_x = 16;
     TC0100SCN_Ctrl->fg0_x = 0;
     TC0100SCN_Ctrl->fg0_y = 0;
     TC0100SCN_Ctrl->system_flags = 0;
-    TC0100SCN_Ctrl->layer_flags = TC0100SCN_LAYER_BG1_DISABLE | TC0100SCN_LAYER_FG0_DISABLE;
+    TC0100SCN_Ctrl->layer_flags = TC0100SCN_LAYER_FG0_DISABLE;
     TC0100SCN_Ctrl->bg0_y = 8;
     TC0100SCN_Ctrl->bg0_x = 16;
-
-    for( uint16_t x = 0; x < 0x8000; x++ )
-    {
-        TC0220IOC->watchdog = 0;
-        set_color(0, x & 0xff, (x>>2) & 0xff, (x>>4) & 0xff);
-        *TC011PCR_WHAT = 0;
-    }
 
     set_16color_palette(0, 255, 255, 255);
     set_16color_palette(1, 255, 0, 0);
@@ -311,14 +304,8 @@ int main(int argc, char *argv[])
         int tmplen = sprintf(tmp, "VBL: %05X  DMA: %05X    ", vblank_count, dma_count);
         draw_bg_text(TC0100SCN->bg0, 0, 2, 2, tmp);
 
-        sprintf(tmp, "CMD: %s", last_cmd);
-        draw_bg_text(TC0100SCN->bg0, 1, 2, 3, tmp);
-
-        sprintf(tmp, "%X %04X %04X %04X", active_cmd.cmd, active_cmd.arg0, active_cmd.arg1, active_cmd.total_bytes);
-        draw_bg_text(TC0100SCN->bg0, 1, 2, 5, tmp);
-
-        comms_status(tmp, 64);
-        draw_bg_text(TC0100SCN->bg0, 2, 2, 7, tmp);
+        draw_bg_text(TC0100SCN->bg0, 1, 2, 4, "BG0");
+        draw_bg_text(TC0100SCN->bg1, 2, 2, 5, "BG1");
     }
 
     return 0;

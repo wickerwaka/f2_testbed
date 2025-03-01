@@ -10,10 +10,17 @@ typedef struct TC0100SCN_BG
     uint16_t code;
 } TC0100SCN_BG;
 
+typedef struct TC0100SCN_FG
+{
+    uint8_t attr;
+    uint8_t code;
+} TC0100SCN_FG;
+
+
 typedef struct TC0100SCN_Layout
 {
     TC0100SCN_BG bg0[0x1000]; // 0x0000
-    uint16_t fg0[0x1000]; // 0x4000
+    TC0100SCN_FG fg0[0x1000]; // 0x4000
     uint16_t fg0_gfx[0x800]; // 0x6000
     uint16_t unknown0[0x800]; // 0x7000
     TC0100SCN_BG bg1[0x1000]; // 0x8000
@@ -30,9 +37,15 @@ typedef struct TC0100SCN_Layout
 #define TC0100SCN_LAYER_FG0_DISABLE ((uint16_t)(1 << 2))
 #define TC0100SCN_LAYER_BG0_PRIO    ((uint16_t)(1 << 3))
 #define TC0100SCN_LAYER_WIDE        ((uint16_t)(1 << 4))
+#define TC0100SCN_LAYER_UNK1        ((uint16_t)(1 << 5))
+#define TC0100SCN_LAYER_UNK2        ((uint16_t)(1 << 6))
+#define TC0100SCN_LAYER_UNK3        ((uint16_t)(1 << 7))
 
 #define TC0100SCN_SYSTEM_FLIP       ((uint16_t)(1 << 0))
 #define TC0100SCN_SYSTEM_SECONDARY  ((uint16_t)(1 << 1))
+#define TC0100SCN_SYSTEM_50HZ       ((uint16_t)(1 << 5))
+#define TC0100SCN_SYSTEM_BLANK      ((uint16_t)(1 << 6))
+#define TC0100SCN_SYSTEM_BROKEN     ((uint16_t)(1 << 7))
 
 typedef struct TC0100SCN_Control
 {
