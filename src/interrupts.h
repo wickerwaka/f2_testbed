@@ -1,43 +1,50 @@
 #if !defined( INTERRUPTS_H )
 #define INTERRUPTS_H 1
 
-__attribute__((interrupt)) void bus_error_handler();
-__attribute__((interrupt)) void address_error_handler();
-__attribute__((interrupt)) void illegal_instruction_handler();
-__attribute__((interrupt)) void zero_divide_handler();
-__attribute__((interrupt)) void chk_handler();
-__attribute__((interrupt)) void trapv_handler();
-__attribute__((interrupt)) void priv_violation_handler();
-__attribute__((interrupt)) void trace_handler();
-__attribute__((interrupt)) void trap_1010_handler();
-__attribute__((interrupt)) void trap_1111_handler();
-__attribute__((interrupt)) void uninitialized_handler();
-__attribute__((interrupt)) void spurious_handler();
-__attribute__((interrupt)) void level1_handler();
-__attribute__((interrupt)) void level2_handler();
-__attribute__((interrupt)) void level3_handler();
-__attribute__((interrupt)) void level4_handler();
-__attribute__((interrupt)) void level5_handler();
-__attribute__((interrupt)) void level6_handler();
-__attribute__((interrupt)) void level7_handler();
-__attribute__((interrupt)) void trap0_handler();
-__attribute__((interrupt)) void trap1_handler();
-__attribute__((interrupt)) void trap2_handler();
-__attribute__((interrupt)) void trap3_handler();
-__attribute__((interrupt)) void trap4_handler();
-__attribute__((interrupt)) void trap5_handler();
-__attribute__((interrupt)) void trap6_handler();
-__attribute__((interrupt)) void trap7_handler();
-__attribute__((interrupt)) void trap8_handler();
-__attribute__((interrupt)) void trap9_handler();
-__attribute__((interrupt)) void trap10_handler();
-__attribute__((interrupt)) void trap11_handler();
-__attribute__((interrupt)) void trap12_handler();
-__attribute__((interrupt)) void trap13_handler();
-__attribute__((interrupt)) void trap14_handler();
-__attribute__((interrupt)) void trap15_handler();
+#if !defined(__clang__)
+#define INTERRUPT __attribute__((interrupt))
+#else
+#define INTERRUPT
+#endif
 
-static inline void enable_interrupts() { asm( "andi #0xf8ff, %sr" ); }
-static inline void disable_interrupts() { asm( "ori #0x0700, %sr" ); }
+
+INTERRUPT void bus_error_handler();
+INTERRUPT void address_error_handler();
+INTERRUPT void illegal_instruction_handler();
+INTERRUPT void zero_divide_handler();
+INTERRUPT void chk_handler();
+INTERRUPT void trapv_handler();
+INTERRUPT void priv_violation_handler();
+INTERRUPT void trace_handler();
+INTERRUPT void trap_1010_handler();
+INTERRUPT void trap_1111_handler();
+INTERRUPT void uninitialized_handler();
+INTERRUPT void spurious_handler();
+INTERRUPT void level1_handler();
+INTERRUPT void level2_handler();
+INTERRUPT void level3_handler();
+INTERRUPT void level4_handler();
+INTERRUPT void level5_handler();
+INTERRUPT void level6_handler();
+INTERRUPT void level7_handler();
+INTERRUPT void trap0_handler();
+INTERRUPT void trap1_handler();
+INTERRUPT void trap2_handler();
+INTERRUPT void trap3_handler();
+INTERRUPT void trap4_handler();
+INTERRUPT void trap5_handler();
+INTERRUPT void trap6_handler();
+INTERRUPT void trap7_handler();
+INTERRUPT void trap8_handler();
+INTERRUPT void trap9_handler();
+INTERRUPT void trap10_handler();
+INTERRUPT void trap11_handler();
+INTERRUPT void trap12_handler();
+INTERRUPT void trap13_handler();
+INTERRUPT void trap14_handler();
+INTERRUPT void trap15_handler();
+
+static inline void enable_interrupts() { __asm__( "andi #0xf8ff, %sr" ); }
+static inline void disable_interrupts() { __asm__( "ori #0x0700, %sr" ); }
 
 #endif

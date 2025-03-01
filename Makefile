@@ -5,13 +5,13 @@ SPLIT_ROM = bin/split_rom.py
 MISTER_HOSTNAME=mister-dev
 
 TARGET = finalb_test
-SRCS = init.c main.c interrupts_default.c comms.c printf/printf.c
-
+SRCS = init.c main.c interrupts_default.c comms.c tilemap.c printf/printf.c
+CHR = font.chr 
 
 BUILD_DIR = build/$(TARGET)
 ORIGINAL_DIR = original_roms
 
-OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:c=o))
+OBJS = $(addprefix $(BUILD_DIR)/, $(SRCS:c=o)) $(addprefix $(BUILD_DIR)/, $(CHR:chr=o))
 BUILD_DIRS = $(sort $(dir $(OBJS))) 
 GLOBAL_DEPS = Makefile
 
@@ -21,7 +21,7 @@ DEFINES = -DPRINTF_SUPPORT_DECIMAL_SPECIFIERS=0 \
 	-DPRINTF_ALIAS_STANDARD_FUNCTION_NAMES=1 \
 	-DPRINTF_ALIAS_STANDARD_FUNCTION_NAMES_HARD=1
 
-CFLAGS = -march=68000 -ffreestanding $(DEFINES) -O2
+CFLAGS = -march=68000 -ffreestanding $(DEFINES) -O2 --std=c2x
 LIBS = -lgcc
 LDFLAGS = -march=68000 -static -nostdlib
 
@@ -72,6 +72,9 @@ $(BUILD_DIR)/cpu_low_$(EPROM_SIZE).bin: $(BUILD_DIR)/cpu.bin $(SPLIT_ROM) | $(GA
 $(BUILD_DIR)/%.o: src/%.c $(GLOBAL_DEPS) | $(BUILD_DIRS)
 	@echo $@
 	@$(CC) -MMD -o $@ $(CFLAGS) -c $<
+
+$(BUILD_DIR)/%.o: src/%.chr $(GLOBAL_DEPS) | $(BUILD_DIRS)
+	$(OBJCOPY) -I binary -O default $< $@
 
 $(BUILD_DIR)/cpu.elf: $(OBJS)
 	@echo $@
