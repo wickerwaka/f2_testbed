@@ -5,15 +5,29 @@
 
 typedef struct TC0100SCN_BG
 {
-    uint8_t attr;
-    uint8_t color;
+    union
+    {
+        struct
+        {
+            uint8_t attr;
+            uint8_t color;
+        };
+        uint16_t attr_color;
+    };
     uint16_t code;
 } TC0100SCN_BG;
 
 typedef struct TC0100SCN_FG
 {
-    uint8_t attr;
-    uint8_t code;
+    union
+    {
+        struct
+        {
+            uint8_t attr;
+            uint8_t code;
+        };
+        uint16_t attr_code;
+    };
 } TC0100SCN_FG;
 
 
