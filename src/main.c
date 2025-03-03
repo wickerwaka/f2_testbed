@@ -5,21 +5,10 @@
 #include "util.h"
 #include "interrupts.h"
 #include "tilemap.h"
-#include "tc0100scn.h"
-#include "tc0220ioc.h"
+#include "input.h"
+#include "system.h"
 
 #include "palette.h"
-
-volatile uint16_t *TC011PCR_ADDR = (volatile uint16_t *)0x200000;
-volatile uint16_t *TC011PCR_DATA = (volatile uint16_t *)0x200002;
-volatile uint16_t *TC011PCR_WHAT = (volatile uint16_t *)0x200004;
-
-TC0100SCN_Layout *TC0100SCN = (TC0100SCN_Layout *)0x800000;
-TC0100SCN_Control *TC0100SCN_Ctrl = (TC0100SCN_Control *)0x820000;
-
-TC0220IOC_Control *TC0220IOC = (TC0220IOC_Control *)0x300000;
-
-uint16_t *TC0200OBJ = (uint16_t *)0x900000;
 
 void set_color(int index, uint8_t r, uint8_t g, uint8_t b)
 {
@@ -50,52 +39,6 @@ void set_colors(uint16_t offset, uint16_t count, uint16_t *colors)
     }
 }
 
-
-
-void draw_bg_text(TC0100SCN_BG *bg, int color, uint16_t x, uint16_t y, const char *str)
-{
-    int ofs = ( y * 64 ) + x;
-
-    while(*str)
-    {
-        if( *str == '\n' )
-        {
-            y++;
-            ofs = (y * 64) + x;
-        }
-        else
-        {
-            bg[ofs].attr = 0;
-            bg[ofs].color = color & 0xff;
-            bg[ofs].code = *str;
-            ofs++;
-        }
-        str++;
-    }
-}
-
-void draw_fg_text(TC0100SCN_FG *fg, int color, uint16_t x, uint16_t y, const char *str)
-{
-    int ofs = ( y * 64 ) + x;
-
-    while(*str)
-    {
-        if( *str == '\n' )
-        {
-            y++;
-            ofs = (y * 64) + x;
-        }
-        else
-        {
-            fg[ofs].attr = color & 0x3f;
-            fg[ofs].code = *str;
-            ofs++;
-        }
-        str++;
-    }
-}
-
-
 volatile uint32_t vblank_count = 0;
 volatile uint32_t dma_count = 0;
 
@@ -117,6 +60,15 @@ void wait_vblank()
     {
     }
 }
+
+void wait_dma()
+{
+    uint32_t current = dma_count;
+    while( current == dma_count )
+    {
+    }
+}
+
 
 uint8_t sine_wave[256] =
 {
@@ -157,15 +109,12 @@ uint8_t sine_wave[256] =
 extern char _binary_src_font_chr_start[];
 extern char _binary_src_font_chr_end[];
 
-int main(int argc, char *argv[])
+#define NUM_SCREENS 3
+
+static uint32_t frame_count;
+
+void init_scn_general()
 {
-    uint16_t edge_count = 0;
-
-    for( int x = 0; x < 0x8000; x++ )
-    {
-        TC0200OBJ[x] = 0;
-    }
-
     memset(TC0100SCN, 0, sizeof(TC0100SCN_Layout));
 
     TC0100SCN_Ctrl->bg1_y = 0;
@@ -176,78 +125,294 @@ int main(int argc, char *argv[])
     TC0100SCN_Ctrl->layer_flags = 0;
     TC0100SCN_Ctrl->bg0_y = 0;
     TC0100SCN_Ctrl->bg0_x = 9;
+    memcpy(TC0100SCN->fg0_gfx + ( 0x20 * 8 ), _binary_src_font_chr_start, _binary_src_font_chr_end - _binary_src_font_chr_start);
 
     set_colors(0, sizeof(finalb_palette) / 2, finalb_palette);
 
     *TC011PCR_WHAT = 0;
 
-    enable_interrupts();
+    frame_count = 0;
+}
 
+void update_scn_general()
+{
+    // Max extent corner boundaries
+    on_layer(BG0); pen_color(0);
+    sym_at(1, 1, 1);
+    sym_at(1, 28, 1);
+    sym_at(40, 1, 1);
+    sym_at(40, 28, 1);
+
+    // Should not be visible
+    pen_color(1);
+    sym_at(0, 1, 0x1b);
+    sym_at(1, 0, 0x1b);
+    sym_at(0, 28, 0x1b);
+    sym_at(1, 29, 0x1b);
+    sym_at(40, 0, 0x1b);
+    sym_at(41, 1, 0x1b);
+    sym_at(40, 29, 0x1b);
+    sym_at(41, 28, 0x1b);
+
+    on_layer(BG0);
+    pen_color(0);
+    move_to(3, 3);
+    print("VBL: %05X  FRAME: %05X", vblank_count, frame_count);
+
+    pen_color(6);
+    print_at(4, 5, "LAYER BG0");
+    on_layer(BG1);
+    pen_color(3);
+    print_at(4, 6, "LAYER BG1");
+
+    on_layer(FG0);
+    pen_color(0);
+    print_at(4, 9, "The quick brown fox\njumps over the lazy dog.\n0123456789?/=-+*");
+
+
+    on_layer(BG0);
+    pen_color(9);
+    print_at(10, 14, "ROW\nSCROLL\nBG0");
+    for( int y = 0; y < 24; y++ )
+    {
+        TC0100SCN->bg0_rowscroll[14 * 8 + y] = sine_wave[(frame_count*2+(y*4)) & 0xff] >> 4;
+    }
+
+    on_layer(BG1);
+    pen_color(2);
+    print_at(20, 14, "COL\nSCROLL\nBG1\n\n\nROWCOL\nSCROLL");
+    for( int x = 0; x < 6; x++ )
+    {
+        TC0100SCN->bg1_colscroll[20 + x] = sine_wave[(frame_count*2+(x*8)) & 0xff] >> 4;
+    }
+    for( int y = 0; y < 16; y++ )
+    {
+        TC0100SCN->bg1_rowscroll[20 * 8 + y] = sine_wave[(frame_count*2+(y*4)) & 0xff] >> 4;
+    }
+
+    frame_count++;
+}
+
+uint16_t system_flags, layer_flags;
+
+void init_scn_control_access()
+{
+    memset(TC0100SCN, 0, sizeof(TC0100SCN_Layout));
+
+    TC0100SCN_Ctrl->bg1_y = 0;
+    TC0100SCN_Ctrl->bg1_x = 9;
+    TC0100SCN_Ctrl->fg0_y = 0;
+    TC0100SCN_Ctrl->fg0_x = 9;
+    TC0100SCN_Ctrl->system_flags = 0;
+    TC0100SCN_Ctrl->layer_flags = 0;
+    TC0100SCN_Ctrl->bg0_y = 0;
+    TC0100SCN_Ctrl->bg0_x = 9;
     memcpy(TC0100SCN->fg0_gfx + ( 0x20 * 8 ), _binary_src_font_chr_start, _binary_src_font_chr_end - _binary_src_font_chr_start);
 
-    uint32_t frame_count = 0;
+    set_colors(0, sizeof(finalb_palette) / 2, finalb_palette);
+
+    *TC011PCR_WHAT = 0;
+
+    frame_count = 0;
+    system_flags = 0;
+    layer_flags = 0;
+
+    const char *msg1 = "UP/DOWN ADJUST SYSTEM FLAGS";
+    const char *msg2 = "LEFT/RIGHT ADJUST LAYER FLAGS";
+
+    pen_color(0);
+    on_layer(BG0);
+    print_at(4, 20, msg1);
+    on_layer(BG1);
+    print_at(4, 20, msg1);
+    on_layer(FG0);
+    print_at(4, 20, msg1);
+
+    on_layer(BG0);
+    print_at(4, 21, msg2);
+    on_layer(BG1);
+    print_at(4, 21, msg2);
+    on_layer(FG0);
+    print_at(4, 21, msg2);
+}
+
+void update_scn_control_access()
+{
+    bool changed = false;
+
+    if(input_pressed(LEFT))
+    {
+        if (system_flags == 0)
+            system_flags = 1;
+        else
+            system_flags = system_flags << 1;
+        changed = true;
+    }
+
+    if(input_pressed(RIGHT))
+    {
+        if (system_flags == 0)
+            system_flags = 1 << 15;
+        else
+            system_flags = system_flags >> 1;
+        changed = true;
+    }
+
+    if(input_pressed(UP))
+    {
+        if (layer_flags == 0)
+            layer_flags = 1;
+        else
+            layer_flags = layer_flags << 1;
+        changed = true;
+    }
+
+    if(input_pressed(DOWN))
+    {
+        if (layer_flags == 0)
+            layer_flags = 1 << 15;
+        else
+            layer_flags = layer_flags >> 1;
+        changed = true;
+    }
+
+    TC0100SCN_Ctrl->system_flags = system_flags;
+    TC0100SCN_Ctrl->layer_flags = layer_flags;
+
+    if (changed || frame_count == 0)
+    {
+        pen_color(0);
+        on_layer(BG0);
+        print_at(4, 4, "LAYER: %06X", layer_flags);
+        on_layer(BG1);
+        print_at(4, 5, "LAYER: %06X", layer_flags);
+        on_layer(FG0);
+        print_at(4, 6, "LAYER: %06X", layer_flags);
+
+        pen_color(0);
+        on_layer(BG0);
+        print_at(20, 4, "SYSTEM: %06X", system_flags);
+        on_layer(BG1);
+        print_at(20, 5, "SYSTEM: %06X", system_flags);
+        on_layer(FG0);
+        print_at(20, 6, "SYSTEM: %06X", system_flags);
+    }
+
+    frame_count++;
+}
+
+void init_obj_general()
+{
+    memset(TC0100SCN, 0, sizeof(TC0100SCN_Layout));
+
+    TC0100SCN_Ctrl->bg1_y = 0;
+    TC0100SCN_Ctrl->bg1_x = 9;
+    TC0100SCN_Ctrl->fg0_y = 0;
+    TC0100SCN_Ctrl->fg0_x = 9;
+    TC0100SCN_Ctrl->system_flags = 0;
+    TC0100SCN_Ctrl->layer_flags = 0;
+    TC0100SCN_Ctrl->bg0_y = 0;
+    TC0100SCN_Ctrl->bg0_x = 9;
+    memcpy(TC0100SCN->fg0_gfx + ( 0x20 * 8 ), _binary_src_font_chr_start, _binary_src_font_chr_end - _binary_src_font_chr_start);
+
+    set_colors(0, sizeof(finalb_palette) / 2, finalb_palette);
+    *TC011PCR_WHAT = 0;
+
+    frame_count = 0;
+}
+
+uint16_t obj_test_data[] =
+{
+    0x0000, 0x0000, 0x0000, 0x8000, 0x0000, 0x0300, 0x0000, 0x0000,
+    0x0000, 0x0000, 0xA000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x5080, 0x00A4, 0x090C, 0x0000, 0x0000, 0x0000,
+    0x13D3, 0x0000, 0x0000, 0x0000, 0x3D00, 0x0000, 0x0000, 0x0000,
+    0x13D7, 0x0000, 0x0000, 0x0000, 0x3D00, 0x0000, 0x0000, 0x0000,
+    0x13CF, 0x0000, 0x0000, 0x0000, 0xCD00, 0x0000, 0x0000, 0x0000,
+    0x13D2, 0x0000, 0x0000, 0x0000, 0x7D00, 0x0000, 0x0000, 0x0000,
+    0x13D6, 0x0000, 0x0000, 0x0000, 0x7D00, 0x0000, 0x0000, 0x0000,
+    0x13CE, 0x0000, 0x0000, 0x0000, 0xCD00, 0x0000, 0x0000, 0x0000,
+    0x13D1, 0x0000, 0x0000, 0x0000, 0x7D00, 0x0000, 0x0000, 0x0000,
+    0x13D5, 0x0000, 0x0000, 0x0000, 0x7D00, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0000, 0x0000, 0xCD00, 0x0000, 0x0000, 0x0000,
+    0x13D0, 0x0000, 0x0000, 0x0000, 0x7D00, 0x0000, 0x0000, 0x0000,
+    0x13D4, 0x0000, 0x0000, 0x0000, 0x7500, 0x0000, 0x0000, 0x0000,
+};
+
+void update_obj_general()
+{
+    wait_dma();
+    memcpyw(TC0200OBJ, obj_test_data, sizeof(obj_test_data) / 2);
+    wait_dma();
+
+    on_layer(BG0);
+    pen_color(1);
+    move_to(5, 4);
+    for( int x = 0; x < 15; x++ )
+    {
+        print("%04X  %04X\n", TC0200OBJ[x].c, TC0200OBJ[x].e);
+    }
+
+    frame_count++;
+}
+
+
+void init_screen(int screen)
+{
+    switch(screen)
+    {
+        case 0: init_scn_general(); break;
+        case 1: init_scn_control_access(); break;
+        case 2: init_obj_general(); break;
+        default: break;
+    }
+}
+
+void update_screen(int screen)
+{
+    switch(screen)
+    {
+        case 0: update_scn_general(); break;
+        case 1: update_scn_control_access(); break;
+        case 2: update_obj_general(); break;
+        default: break;
+    }
+}
+
+void deinit_screen(int screen)
+{
+    switch(screen)
+    {
+        default: break;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    memsetw(TC0200OBJ, 0, 0x8000);
+
+    memset(TC0100SCN, 0, sizeof(TC0100SCN_Layout));
+
+    enable_interrupts();
+
+    uint32_t system_flags = 0;
+
+    int current_screen = 2;
+
+    init_screen(current_screen);
+    
     while(1)
     {
-        wait_vblank();
+        input_update();
 
-        // Max extent corner boundaries
-        on_layer(BG0); pen_color(0);
-        sym_at(1, 1, 1);
-        sym_at(1, 28, 1);
-        sym_at(40, 1, 1);
-        sym_at(40, 28, 1);
-
-        // Should not be visible
-        pen_color(1);
-        sym_at(0, 1, 0x1b);
-        sym_at(1, 0, 0x1b);
-        sym_at(0, 28, 0x1b);
-        sym_at(1, 29, 0x1b);
-        sym_at(40, 0, 0x1b);
-        sym_at(41, 1, 0x1b);
-        sym_at(40, 29, 0x1b);
-        sym_at(41, 28, 0x1b);
-
-
-        on_layer(BG0);
-        pen_color(0);
-        move_to(3, 3);
-        print("VBL: %05X  DMA: %05X", vblank_count, dma_count);
-
-        pen_color(6);
-        print_at(4, 5, "LAYER BG0");
-        on_layer(BG1);
-        pen_color(3);
-        print_at(4, 6, "LAYER BG1");
-
-        on_layer(FG0);
-        pen_color(0);
-        print_at(4, 9, "The quick brown fox\njumps over the lazy dog.\n0123456789?/=-+*");
-
-
-        on_layer(BG0);
-        pen_color(9);
-        print_at(10, 14, "ROW\nSCROLL\nBG0");
-        for( int y = 0; y < 24; y++ )
+        if (input_pressed(START))
         {
-            TC0100SCN->bg0_rowscroll[14 * 8 + y] = sine_wave[(frame_count*2+(y*4)) & 0xff] >> 4;
+            deinit_screen(current_screen);
+            current_screen = ( current_screen + 1 ) % NUM_SCREENS;
+            init_screen(current_screen);
         }
 
-        on_layer(BG1);
-        pen_color(2);
-        print_at(20, 14, "COL\nSCROLL\nBG1\n\n\nROWCOL\nSCROLL");
-        for( int x = 0; x < 6; x++ )
-        {
-            TC0100SCN->bg1_colscroll[20 + x] = sine_wave[(frame_count*2+(x*8)) & 0xff] >> 4;
-        }
-        for( int y = 0; y < 16; y++ )
-        {
-            TC0100SCN->bg1_rowscroll[20 * 8 + y] = sine_wave[(frame_count*2+(y*4)) & 0xff] >> 4;
-        }
-
-
-
-        frame_count++;
+        update_screen(current_screen);
     }
 
     return 0;

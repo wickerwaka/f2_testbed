@@ -2,11 +2,10 @@
 #include <stdarg.h>
 
 #include "printf/printf.h"
-#include "tc0100scn.h"
 #include "tilemap.h"
+#include "system.h"
 
-TC0100SCN_Layout *SCN = (TC0100SCN_Layout *)0x800000;
-TC0100SCN_Control *SCN_Ctrl = (TC0100SCN_Control *)0x820000;
+#define SCN TC0100SCN
 
 Layer cur_layer;
 uint16_t cur_x, cur_y;
@@ -67,6 +66,7 @@ static void print_string(const char *str)
                     break;
             }
             ofs++;
+            x++;
         }
         str++;
     }

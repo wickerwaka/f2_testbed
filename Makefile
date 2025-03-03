@@ -5,7 +5,7 @@ SPLIT_ROM = bin/split_rom.py
 MISTER_HOSTNAME=mister-dev
 
 TARGET = finalb_test
-SRCS = init.c main.c interrupts_default.c comms.c tilemap.c printf/printf.c
+SRCS = init.c main.c interrupts_default.c comms.c tilemap.c input.c printf/printf.c
 CHR = font.chr 
 
 BUILD_DIR = build/$(TARGET)
